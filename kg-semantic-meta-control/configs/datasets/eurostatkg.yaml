@@ -1,7 +1,10 @@
 name: eurostatkg
-raw_path: data/raw/eurostatkg
-processed_path: data/processed/dataset1
-ontology_path: data/raw/eurostatkg/ontology.owl
-train_path: data/processed/dataset1/train.tsv
-valid_path: data/processed/dataset1/valid.tsv
-test_path: data/processed/dataset1/test.tsv
+input_path: data/raw/eurostatkg/graph.ttl
+format: turtle
+keep_literals: false
+deduplicate: true
+strip_whitespace: true
+train_ratio: 0.8
+valid_ratio: 0.1
+test_ratio: 0.1
+predicate_whitelist: configs/filters/eurostatkg_predicates.txt

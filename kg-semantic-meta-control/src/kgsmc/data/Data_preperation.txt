@@ -1,0 +1,19 @@
+raw KG / ontology
+        │
+        ▼
+shared prepare_data.py
+        │
+        ├──► train.tsv / valid.tsv / test.tsv
+        │         │
+        │         ├──► optional_model_training/
+        │         │        ├─ train_embeddings.py
+        │         │        ├─ evaluate_embeddings.py
+        │         │        └─ export_candidates.py
+        │         │
+        │         └──► main pipeline
+        │
+        └──► build_indexes.py
+                  ├─ ontology indexes
+                  ├─ type indexes
+                  ├─ path indexes
+                  └─ semantic constraints
