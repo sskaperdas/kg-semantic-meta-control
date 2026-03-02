@@ -6,21 +6,35 @@ DIRS = [
     "configs/datasets",
     "configs/pipeline",
     "configs/training_optional",
-    "data/raw/eurostatkg",
-    "data/raw/bio2rdf",
-    "data/processed/dataset1",
-    "data/processed/dataset2",
+
+    "data/raw/eurostatkg/source",
+    "data/raw/eurostatkg/ontology",
+    "data/raw/eurostatkg/graph",
+    "data/raw/bio2rdf/source",
+    "data/raw/bio2rdf/ontology",
+    "data/raw/bio2rdf/graph",
+
+    "data/interim/eurostatkg",
+    "data/interim/bio2rdf",
+
+    "data/processed/eurostatkg",
+    "data/processed/bio2rdf",
+
     "data/external",
+
     "indexes/ontology",
     "indexes/graph",
+
     "runs/baseline",
     "runs/pipeline",
     "runs/evaluation",
     "runs/logs",
+
     "outputs/predictions",
     "outputs/traces",
     "outputs/reports",
     "outputs/figures",
+
     "src/kgsmc/utils",
     "src/kgsmc/data",
     "src/kgsmc/ontology",
@@ -31,9 +45,13 @@ DIRS = [
     "src/kgsmc/gating",
     "src/kgsmc/evaluation",
     "src/kgsmc/pipelines",
+
     "scripts",
+    "scripts/dataset_builders",
+
     "notebooks",
     "tests",
+
     "optional_model_training/configs",
     "optional_model_training/scripts",
     "optional_model_training/checkpoints",

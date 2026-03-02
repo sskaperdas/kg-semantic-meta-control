@@ -1,10 +1,7 @@
-name: drugbank
-input_path: data/raw/drugbank/graph.nt
-format: nt
-keep_literals: false
-deduplicate: true
-strip_whitespace: true
-train_ratio: 0.8
-valid_ratio: 0.1
-test_ratio: 0.1
-predicate_whitelist: configs/filters/drugbank_predicates.txt
+name: bio2rdf
+raw_path: data/raw/bio2rdf
+processed_path: data/processed/dataset2
+ontology_path: data/raw/bio2rdf/ontology.owl
+train_path: data/processed/dataset2/train.tsv
+valid_path: data/processed/dataset2/valid.tsv
+test_path: data/processed/dataset2/test.tsv
