@@ -1,0 +1,8 @@
+pandas
+pyyaml
+tqdm
+rdflib
+owlready2
+networkx
+pykeen
+pytest

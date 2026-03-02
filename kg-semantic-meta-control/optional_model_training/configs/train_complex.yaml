@@ -1,0 +1,4 @@
+model: ComplEx
+epochs: 50
+embedding_dim: 100
+batch_size: 256

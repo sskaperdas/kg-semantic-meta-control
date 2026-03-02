@@ -1,0 +1,1 @@
+"""PyKEEN-based predictor adapter."""

@@ -1,0 +1,4 @@
+model_name: TransE
+top_k: 50
+query_types:
+  - tail

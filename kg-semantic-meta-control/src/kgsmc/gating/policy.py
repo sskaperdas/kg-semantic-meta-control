@@ -1,0 +1,1 @@
+"""Accept/demote/abstain policy."""

@@ -1,0 +1,1 @@
+"""Final score computation."""

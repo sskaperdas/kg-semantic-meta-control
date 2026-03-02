@@ -1,0 +1,1 @@
+"""Final ranking logic."""

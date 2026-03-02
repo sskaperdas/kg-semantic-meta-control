@@ -1,0 +1,5 @@
+alpha: 0.5
+tau: 0.4
+epsilon: 0.0
+lambda_score: 0.5
+mu_penalty: 0.25

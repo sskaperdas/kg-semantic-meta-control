@@ -1,0 +1,7 @@
+name: eurostatkg
+raw_path: data/raw/eurostatkg
+processed_path: data/processed/dataset1
+ontology_path: data/raw/eurostatkg/ontology.owl
+train_path: data/processed/dataset1/train.tsv
+valid_path: data/processed/dataset1/valid.tsv
+test_path: data/processed/dataset1/test.tsv

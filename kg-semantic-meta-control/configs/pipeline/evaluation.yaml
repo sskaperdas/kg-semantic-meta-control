@@ -1,0 +1,7 @@
+metrics:
+  - mrr
+  - hits_at_10
+  - svr
+  - valid_at_k
+  - coverage
+  - explainability_coverage

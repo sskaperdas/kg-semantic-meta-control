@@ -1,0 +1,4 @@
+project_name: kg-semantic-meta-control
+default_dataset: eurostatkg
+default_model: TransE
+top_k: 50

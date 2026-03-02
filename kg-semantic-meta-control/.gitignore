@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+env/
+.ipynb_checkpoints/
+data/raw/
+data/external/
+indexes/
+runs/
+outputs/
+optional_model_training/checkpoints/
+optional_model_training/runs/
