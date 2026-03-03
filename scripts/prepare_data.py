@@ -1,549 +1,409 @@
-"""CLI script for dataset preparation."""
-#!/usr/bin/env python3
-"""
-Shared dataset preparation script for KG projects.
-
-Purpose
--------
-This script converts raw KG data into a clean triple dataset suitable for:
-1. optional embedding model training
-2. the main semantic meta-control pipeline
-
-Supported input formats
------------------------
-- RDF graphs: .ttl, .nt, .n3, .xml, .rdf
-- Tabular triples: .tsv, .csv
-
-Outputs
--------
-- train.tsv
-- valid.tsv
-- test.tsv
-- all_triples.tsv
-- entities.tsv
-- relations.tsv
-- stats.json
-
-Default triple format
----------------------
-head<TAB>relation<TAB>tail
-
-Notes
------
-- By default, triples with literal objects are removed.
-- rdf:type triples are kept unless excluded by predicate filters.
-- Split is random but reproducible via --random-seed.
-"""
-
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import random
 from collections import Counter
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Iterable, List, Set, Tuple
 
-from rdflib import Graph, Literal, URIRef
+from rdflib import Graph, URIRef
+from rdflib.namespace import RDF, RDFS, OWL
 
 Triple = Tuple[str, str, str]
 
-RDF_SUFFIXES = {".ttl", ".nt", ".n3", ".xml", ".rdf"}
-TABULAR_SUFFIXES = {".tsv", ".csv"}
 
+# =========================================================
+# Generic helpers
+# =========================================================
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prepare KG triples for training and semantic processing.")
-
-    parser.add_argument(
-        "--input",
-        required=True,
-        help="Path to input file (.ttl/.nt/.rdf/.xml/.tsv/.csv).",
-    )
-    parser.add_argument(
-        "--output-dir",
-        required=True,
-        help="Directory where processed outputs will be saved.",
-    )
-
-    parser.add_argument(
-        "--format",
-        default=None,
-        help=(
-            "Explicit input format. "
-            "For RDF: turtle, nt, n3, xml. "
-            "For tabular: tsv, csv. "
-            "If omitted, inferred from file extension."
-        ),
-    )
-
-    parser.add_argument(
-        "--delimiter",
-        default=None,
-        help="Delimiter for tabular input. If omitted, inferred from extension.",
-    )
-
-    parser.add_argument(
-        "--has-header",
-        action="store_true",
-        help="Set this if the input TSV/CSV has a header row.",
-    )
-
-    parser.add_argument(
-        "--head-col",
-        default="head",
-        help="Head column name for CSV/TSV with header, or integer index (e.g. 0) for no-header tabular input.",
-    )
-    parser.add_argument(
-        "--rel-col",
-        default="relation",
-        help="Relation column name for CSV/TSV with header, or integer index (e.g. 1) for no-header tabular input.",
-    )
-    parser.add_argument(
-        "--tail-col",
-        default="tail",
-        help="Tail column name for CSV/TSV with header, or integer index (e.g. 2) for no-header tabular input.",
-    )
-
-    parser.add_argument(
-        "--keep-literals",
-        action="store_true",
-        help="Keep triples whose object is a literal. By default they are removed.",
-    )
-
-    parser.add_argument(
-        "--lowercase-relations",
-        action="store_true",
-        help="Lowercase relation strings after loading.",
-    )
-
-    parser.add_argument(
-        "--strip-whitespace",
-        action="store_true",
-        help="Strip leading/trailing whitespace from textual fields.",
-    )
-
-    parser.add_argument(
-        "--predicate-whitelist",
-        default=None,
-        help="Optional path to a text file with one predicate URI/name per line to keep.",
-    )
-    parser.add_argument(
-        "--predicate-blacklist",
-        default=None,
-        help="Optional path to a text file with one predicate URI/name per line to exclude.",
-    )
-
-    parser.add_argument(
-        "--min-relation-frequency",
-        type=int,
-        default=1,
-        help="Minimum number of occurrences required for a relation to be kept.",
-    )
-    parser.add_argument(
-        "--min-entity-frequency",
-        type=int,
-        default=1,
-        help="Minimum total degree frequency required for an entity to be kept.",
-    )
-
-    parser.add_argument(
-        "--deduplicate",
-        action="store_true",
-        help="Remove duplicate triples after loading.",
-    )
-
-    parser.add_argument(
-        "--train-ratio",
-        type=float,
-        default=0.8,
-        help="Train split ratio.",
-    )
-    parser.add_argument(
-        "--valid-ratio",
-        type=float,
-        default=0.1,
-        help="Validation split ratio.",
-    )
-    parser.add_argument(
-        "--test-ratio",
-        type=float,
-        default=0.1,
-        help="Test split ratio.",
-    )
-
-    parser.add_argument(
-        "--random-seed",
-        type=int,
-        default=42,
-        help="Random seed for reproducible splitting.",
-    )
-
-    parser.add_argument(
-        "--sort-output",
-        action="store_true",
-        help="Sort outputs lexicographically before writing.",
-    )
-
-    return parser.parse_args()
-
-
-def infer_format(input_path: Path, explicit_format: Optional[str]) -> str:
-    if explicit_format:
-        return explicit_format.lower()
-
-    suffix = input_path.suffix.lower()
-    if suffix in RDF_SUFFIXES:
-        if suffix == ".ttl":
-            return "turtle"
-        if suffix == ".nt":
-            return "nt"
-        if suffix == ".n3":
-            return "n3"
-        if suffix in {".xml", ".rdf"}:
-            return "xml"
-    if suffix in TABULAR_SUFFIXES:
-        return suffix.lstrip(".")
-    raise ValueError(f"Could not infer format from suffix '{suffix}'. Please pass --format explicitly.")
-
-
-def ensure_output_dir(path: Path) -> None:
+def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def load_list_file(path_str: Optional[str]) -> Optional[Set[str]]:
-    if not path_str:
-        return None
-    path = Path(path_str)
-    values = set()
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            value = line.strip()
-            if value:
-                values.add(value)
-    return values
+def is_uri_node(x) -> bool:
+    return isinstance(x, URIRef)
 
 
-def normalize_field(value: str, strip_whitespace: bool) -> str:
-    return value.strip() if strip_whitespace else value
+def guess_rdf_format(path: Path) -> str | None:
+    suffix = path.suffix.lower()
+    if suffix == ".ttl":
+        return "turtle"
+    if suffix == ".nt":
+        return "nt"
+    if suffix == ".n3":
+        return "n3"
+    if suffix == ".xml" or suffix == ".rdf":
+        return "xml"
+    return None
 
 
-def maybe_lower_relation(value: str, lowercase_relations: bool) -> str:
-    return value.lower() if lowercase_relations else value
+def load_graph(input_path: Path) -> Graph:
+    g = Graph()
+    rdf_format = guess_rdf_format(input_path)
+    g.parse(str(input_path), format=rdf_format)
+    return g
 
 
-def read_rdf_triples(
-    input_path: Path,
-    rdf_format: str,
-    keep_literals: bool,
-    strip_whitespace: bool,
-    lowercase_relations: bool,
-) -> List[Triple]:
-    graph = Graph()
-    graph.parse(str(input_path), format=rdf_format)
-
+def graph_to_uri_triples(graph: Graph) -> List[Triple]:
     triples: List[Triple] = []
-
     for s, p, o in graph:
-        if not isinstance(s, URIRef):
-            continue
-        if not isinstance(p, URIRef):
-            continue
-
-        head = normalize_field(str(s), strip_whitespace)
-        rel = maybe_lower_relation(normalize_field(str(p), strip_whitespace), lowercase_relations)
-
-        if isinstance(o, URIRef):
-            tail = normalize_field(str(o), strip_whitespace)
-            triples.append((head, rel, tail))
-        elif isinstance(o, Literal):
-            if keep_literals:
-                tail = normalize_field(str(o), strip_whitespace)
-                triples.append((head, rel, tail))
-        else:
-            # Ignore blank nodes and other unsupported node types for now.
-            continue
-
+        if is_uri_node(s) and is_uri_node(p) and is_uri_node(o):
+            triples.append((str(s), str(p), str(o)))
     return triples
 
 
-def _resolve_column_spec(spec: str, row: Sequence[str], header_map: Optional[dict]) -> str:
-    if header_map is not None:
-        if spec not in header_map:
-            raise KeyError(f"Column '{spec}' not found in header. Available columns: {list(header_map.keys())}")
-        return row[header_map[spec]]
-
-    try:
-        idx = int(spec)
-    except ValueError as exc:
-        raise ValueError(
-            f"Column spec '{spec}' must be an integer index when --has-header is not set."
-        ) from exc
-
-    if idx < 0 or idx >= len(row):
-        raise IndexError(f"Column index {idx} out of bounds for row with {len(row)} columns.")
-    return row[idx]
+def write_triples(triples: Iterable[Triple], path: Path) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        for h, r, t in triples:
+            f.write(f"{h}\t{r}\t{t}\n")
 
 
-def read_tabular_triples(
-    input_path: Path,
-    delimiter: str,
-    has_header: bool,
-    head_col: str,
-    rel_col: str,
-    tail_col: str,
-    strip_whitespace: bool,
-    lowercase_relations: bool,
-) -> List[Triple]:
-    triples: List[Triple] = []
-
-    with input_path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.reader(f, delimiter=delimiter)
-
-        header_map = None
-        if has_header:
-            try:
-                header = next(reader)
-            except StopIteration:
-                return []
-            header = [h.strip() for h in header]
-            header_map = {name: idx for idx, name in enumerate(header)}
-
-        for row in reader:
-            if not row:
-                continue
-
-            h = normalize_field(_resolve_column_spec(head_col, row, header_map), strip_whitespace)
-            r = normalize_field(_resolve_column_spec(rel_col, row, header_map), strip_whitespace)
-            t = normalize_field(_resolve_column_spec(tail_col, row, header_map), strip_whitespace)
-
-            if not h or not r or not t:
-                continue
-
-            r = maybe_lower_relation(r, lowercase_relations)
-            triples.append((h, r, t))
-
-    return triples
+def write_vocab(items: Iterable[str], path: Path) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        for x in sorted(set(items)):
+            f.write(f"{x}\n")
 
 
-def filter_predicates(
-    triples: Iterable[Triple],
-    whitelist: Optional[Set[str]],
-    blacklist: Optional[Set[str]],
-) -> List[Triple]:
-    filtered: List[Triple] = []
-    for h, r, t in triples:
-        if whitelist is not None and r not in whitelist:
-            continue
-        if blacklist is not None and r in blacklist:
-            continue
-        filtered.append((h, r, t))
-    return filtered
+def write_id_map(items: Iterable[str], path: Path) -> None:
+    items_sorted = sorted(set(items))
+    with path.open("w", encoding="utf-8") as f:
+        for idx, item in enumerate(items_sorted):
+            f.write(f"{item}\t{idx}\n")
 
 
-def deduplicate_triples(triples: Iterable[Triple]) -> List[Triple]:
-    return list(dict.fromkeys(triples))
-
-
-def filter_by_relation_frequency(triples: Iterable[Triple], min_relation_frequency: int) -> List[Triple]:
-    relation_counts = Counter(r for _, r, _ in triples)
-    return [(h, r, t) for h, r, t in triples if relation_counts[r] >= min_relation_frequency]
-
-
-def compute_entity_degree_counts(triples: Iterable[Triple]) -> Counter:
-    counts: Counter = Counter()
-    for h, _, t in triples:
-        counts[h] += 1
-        counts[t] += 1
-    return counts
-
-
-def filter_by_entity_frequency(triples: Iterable[Triple], min_entity_frequency: int) -> List[Triple]:
-    entity_counts = compute_entity_degree_counts(triples)
-    return [
-        (h, r, t)
-        for h, r, t in triples
-        if entity_counts[h] >= min_entity_frequency and entity_counts[t] >= min_entity_frequency
-    ]
-
-
-def validate_split_ratios(train_ratio: float, valid_ratio: float, test_ratio: float) -> None:
-    total = train_ratio + valid_ratio + test_ratio
-    if abs(total - 1.0) > 1e-9:
-        raise ValueError(
-            f"Split ratios must sum to 1.0, but got {train_ratio} + {valid_ratio} + {test_ratio} = {total}"
-        )
-
-
-def split_triples(
+def safe_split_triples(
     triples: List[Triple],
     train_ratio: float,
     valid_ratio: float,
     test_ratio: float,
-    random_seed: int,
-) -> Tuple[List[Triple], List[Triple], List[Triple]]:
-    validate_split_ratios(train_ratio, valid_ratio, test_ratio)
+    seed: int = 42,
+) -> tuple[List[Triple], List[Triple], List[Triple]]:
+    """
+    Transductive split:
+    - first do random split
+    - then move any valid/test triple to train if it introduces unseen entity/relation
+    """
+    total = len(triples)
+    if total == 0:
+        return [], [], []
 
-    shuffled = triples[:]
-    random.Random(random_seed).shuffle(shuffled)
+    if abs((train_ratio + valid_ratio + test_ratio) - 1.0) > 1e-9:
+        raise ValueError("train_ratio + valid_ratio + test_ratio must sum to 1.0")
 
-    n = len(shuffled)
-    n_train = int(n * train_ratio)
-    n_valid = int(n * valid_ratio)
-    # test gets the remainder
+    rng = random.Random(seed)
+    shuffled = list(triples)
+    rng.shuffle(shuffled)
+
+    n_train = int(total * train_ratio)
+    n_valid = int(total * valid_ratio)
+    n_test = total - n_train - n_valid
+
     train = shuffled[:n_train]
     valid = shuffled[n_train:n_train + n_valid]
-    test = shuffled[n_train + n_valid:]
-    return train, valid, test
+    test = shuffled[n_train + n_valid:n_train + n_valid + n_test]
+
+    def entities(trs: Iterable[Triple]) -> Set[str]:
+        out = set()
+        for h, _, t in trs:
+            out.add(h)
+            out.add(t)
+        return out
+
+    def relations(trs: Iterable[Triple]) -> Set[str]:
+        return {r for _, r, _ in trs}
+
+    train_entities = entities(train)
+    train_relations = relations(train)
+
+    safe_valid: List[Triple] = []
+    safe_test: List[Triple] = []
+
+    moved_from_valid = 0
+    moved_from_test = 0
+
+    for triple in valid:
+        h, r, t = triple
+        if h in train_entities and t in train_entities and r in train_relations:
+            safe_valid.append(triple)
+        else:
+            train.append(triple)
+            train_entities.update([h, t])
+            train_relations.add(r)
+            moved_from_valid += 1
+
+    for triple in test:
+        h, r, t = triple
+        if h in train_entities and t in train_entities and r in train_relations:
+            safe_test.append(triple)
+        else:
+            train.append(triple)
+            train_entities.update([h, t])
+            train_relations.add(r)
+            moved_from_test += 1
+
+    return train, safe_valid, safe_test
 
 
-def write_tsv(path: Path, triples: Iterable[Triple], sort_output: bool) -> None:
-    rows = list(triples)
-    if sort_output:
-        rows.sort()
-    with path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f, delimiter="\t")
-        writer.writerows(rows)
+def relation_counter(triples: Iterable[Triple]) -> Counter:
+    c = Counter()
+    for _, r, _ in triples:
+        c[r] += 1
+    return c
 
 
-def write_list_tsv(path: Path, values: Iterable[str], sort_output: bool) -> None:
-    rows = list(values)
-    if sort_output:
-        rows.sort()
-    with path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f, delimiter="\t")
-        for value in rows:
-            writer.writerow([value])
+def type_counter(triples: Iterable[Triple]) -> Counter:
+    c = Counter()
+    rdf_type = str(RDF.type)
+    for _, r, t in triples:
+        if r == rdf_type:
+            c[t] += 1
+    return c
 
 
-def compute_stats(
-    raw_count: int,
-    after_predicate_filter: int,
-    after_relation_filter: int,
-    after_entity_filter: int,
-    final_count: int,
-    train: List[Triple],
-    valid: List[Triple],
-    test: List[Triple],
+# =========================================================
+# Eurostat preprocessing
+# =========================================================
+
+def preprocess_eurostat_training(
+    input_path: Path,
+    output_dir: Path,
+    train_ratio: float = 0.8,
+    valid_ratio: float = 0.1,
+    test_ratio: float = 0.1,
+    seed: int = 42,
+    include_rdf_type: bool = True,
+    include_schema: bool = True,
 ) -> dict:
-    all_triples = train + valid + test
-    entities = sorted({h for h, _, _ in all_triples} | {t for _, _, t in all_triples})
-    relations = sorted({r for _, r, _ in all_triples})
+    """
+    Eurostat training preprocessing:
+    - load RDF
+    - keep URI->URI triples only
+    - optionally keep/remove rdf:type
+    - optionally keep/remove schema relations
+    - deduplicate
+    - safe train/valid/test split
+    - write vocab + mappings + stats
 
-    relation_counts = Counter(r for _, r, _ in all_triples)
-    top_relations = relation_counts.most_common(20)
+    This is specifically for KGE-style training preprocessing.
+    """
+    ensure_dir(output_dir)
 
-    return {
-        "raw_triples_loaded": raw_count,
-        "after_predicate_filter": after_predicate_filter,
-        "after_relation_frequency_filter": after_relation_filter,
-        "after_entity_frequency_filter": after_entity_filter,
-        "final_triples": final_count,
-        "num_train": len(train),
-        "num_valid": len(valid),
-        "num_test": len(test),
-        "num_entities": len(entities),
-        "num_relations": len(relations),
-        "top_relations": top_relations,
+    g = load_graph(input_path)
+    all_uri_triples = graph_to_uri_triples(g)
+
+    rdf_type = str(RDF.type)
+    schema_relations = {
+        str(RDFS.subClassOf),
+        str(RDFS.subPropertyOf),
+        str(RDFS.domain),
+        str(RDFS.range),
+        str(OWL.equivalentClass),
+        str(OWL.equivalentProperty),
+        str(OWL.inverseOf),
+        str(OWL.disjointWith),
+        str(OWL.sameAs),
+        str(OWL.imports),
     }
 
+    filtered: List[Triple] = []
+    removal_stats = Counter()
 
-def main() -> None:
-    args = parse_args()
+    for h, r, t in all_uri_triples:
+        if (not include_rdf_type) and (r == rdf_type):
+            removal_stats["removed_rdf_type"] += 1
+            continue
 
-    input_path = Path(args.input)
-    output_dir = Path(args.output_dir)
-    ensure_output_dir(output_dir)
+        if (not include_schema) and (r in schema_relations):
+            removal_stats["removed_schema_relation"] += 1
+            continue
 
-    inferred_format = infer_format(input_path, args.format)
+        filtered.append((h, r, t))
 
-    if inferred_format in {"tsv", "csv"}:
-        delimiter = args.delimiter
-        if delimiter is None:
-            delimiter = "\t" if inferred_format == "tsv" else ","
+    # deduplicate while preserving deterministic order as much as possible
+    filtered = sorted(set(filtered))
 
-        triples = read_tabular_triples(
-            input_path=input_path,
-            delimiter=delimiter,
-            has_header=args.has_header,
-            head_col=args.head_col,
-            rel_col=args.rel_col,
-            tail_col=args.tail_col,
-            strip_whitespace=args.strip_whitespace,
-            lowercase_relations=args.lowercase_relations,
-        )
-    else:
-        triples = read_rdf_triples(
-            input_path=input_path,
-            rdf_format=inferred_format,
-            keep_literals=args.keep_literals,
-            strip_whitespace=args.strip_whitespace,
-            lowercase_relations=args.lowercase_relations,
-        )
-
-    raw_count = len(triples)
-
-    if args.deduplicate:
-        triples = deduplicate_triples(triples)
-
-    whitelist = load_list_file(args.predicate_whitelist)
-    blacklist = load_list_file(args.predicate_blacklist)
-
-    triples = filter_predicates(triples, whitelist=whitelist, blacklist=blacklist)
-    after_predicate_filter = len(triples)
-
-    triples = filter_by_relation_frequency(triples, args.min_relation_frequency)
-    after_relation_filter = len(triples)
-
-    triples = filter_by_entity_frequency(triples, args.min_entity_frequency)
-    after_entity_filter = len(triples)
-
-    if not triples:
-        raise RuntimeError("No triples remain after filtering. Please relax the preprocessing constraints.")
-
-    train, valid, test = split_triples(
-        triples=triples,
-        train_ratio=args.train_ratio,
-        valid_ratio=args.valid_ratio,
-        test_ratio=args.test_ratio,
-        random_seed=args.random_seed,
+    train, valid, test = safe_split_triples(
+        filtered,
+        train_ratio=train_ratio,
+        valid_ratio=valid_ratio,
+        test_ratio=test_ratio,
+        seed=seed,
     )
 
-    all_triples = train + valid + test
-    entities = {h for h, _, _ in all_triples} | {t for _, _, t in all_triples}
-    relations = {r for _, r, _ in all_triples}
+    entity_set = set()
+    relation_set = set()
+    for h, r, t in filtered:
+        entity_set.add(h)
+        entity_set.add(t)
+        relation_set.add(r)
 
-    write_tsv(output_dir / "train.tsv", train, args.sort_output)
-    write_tsv(output_dir / "valid.tsv", valid, args.sort_output)
-    write_tsv(output_dir / "test.tsv", test, args.sort_output)
-    write_tsv(output_dir / "all_triples.tsv", all_triples, args.sort_output)
+    # Write outputs
+    write_triples(filtered, output_dir / "all_triples.txt")
+    write_triples(train, output_dir / "train.txt")
+    write_triples(valid, output_dir / "valid.txt")
+    write_triples(test, output_dir / "test.txt")
 
-    write_list_tsv(output_dir / "entities.tsv", entities, args.sort_output)
-    write_list_tsv(output_dir / "relations.tsv", relations, args.sort_output)
+    write_vocab(entity_set, output_dir / "entities.txt")
+    write_vocab(relation_set, output_dir / "relations.txt")
+    write_id_map(entity_set, output_dir / "entity2id.txt")
+    write_id_map(relation_set, output_dir / "relation2id.txt")
 
-    stats = compute_stats(
-        raw_count=raw_count,
-        after_predicate_filter=after_predicate_filter,
-        after_relation_filter=after_relation_filter,
-        after_entity_filter=after_entity_filter,
-        final_count=len(all_triples),
-        train=train,
-        valid=valid,
-        test=test,
-    )
+    stats = {
+        "dataset": "eurostat",
+        "input_file": str(input_path),
+        "output_dir": str(output_dir),
+        "config": {
+            "train_ratio": train_ratio,
+            "valid_ratio": valid_ratio,
+            "test_ratio": test_ratio,
+            "seed": seed,
+            "include_rdf_type": include_rdf_type,
+            "include_schema": include_schema,
+        },
+        "counts": {
+            "rdf_graph_total_triples": len(g),
+            "uri_uri_triples_before_filtering": len(all_uri_triples),
+            "training_triples_after_filtering": len(filtered),
+            "train": len(train),
+            "valid": len(valid),
+            "test": len(test),
+            "entities": len(entity_set),
+            "relations": len(relation_set),
+        },
+        "removals": dict(removal_stats),
+        "top_relations": relation_counter(filtered).most_common(25),
+        "top_rdf_types": type_counter(filtered).most_common(25),
+    }
 
     with (output_dir / "stats.json").open("w", encoding="utf-8") as f:
         json.dump(stats, f, indent=2, ensure_ascii=False)
 
-    print("[INFO] Dataset preparation completed successfully.")
-    print(f"[INFO] Input file: {input_path}")
-    print(f"[INFO] Output directory: {output_dir}")
-    print(f"[INFO] Raw triples loaded: {raw_count}")
-    print(f"[INFO] Final triples kept: {len(all_triples)}")
-    print(f"[INFO] Train/Valid/Test: {len(train)}/{len(valid)}/{len(test)}")
-    print(f"[INFO] Entities: {len(entities)}")
-    print(f"[INFO] Relations: {len(relations)}")
+    return stats
+
+
+# =========================================================
+# DrugBank preprocessing
+# =========================================================
+
+def preprocess_drugbank_training(
+    input_path: Path,
+    output_dir: Path,
+    train_ratio: float = 0.8,
+    valid_ratio: float = 0.1,
+    test_ratio: float = 0.1,
+    seed: int = 42,
+) -> dict:
+    """
+    Placeholder for DrugBank preprocessing.
+
+    To be completed later
+    """
+    ensure_dir(output_dir)
+
+    stats = {
+        "dataset": "drugbank",
+        "input_file": str(input_path),
+        "output_dir": str(output_dir),
+        "status": "to_be_completed",
+        "notes": [
+            "DrugBank preprocessing has not been implemented yet.",
+            "Add source-specific parsing and filtering rules here.",
+            "Keep this function separate from Eurostat to avoid mixing assumptions.",
+        ],
+        "config": {
+            "train_ratio": train_ratio,
+            "valid_ratio": valid_ratio,
+            "test_ratio": test_ratio,
+            "seed": seed,
+        },
+    }
+
+    with (output_dir / "stats.json").open("w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2, ensure_ascii=False)
+
+    return stats
+
+
+# =========================================================
+# CLI
+# =========================================================
+
+def build_argparser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Prepare RDF datasets for KGE-style training."
+    )
+
+    parser.add_argument(
+        "--dataset",
+        required=True,
+        choices=["eurostat", "drugbank"],
+        help="Dataset-specific preprocessing pipeline."
+    )
+    parser.add_argument(
+        "--input",
+        required=True,
+        help="Path to RDF input file."
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Directory to write processed outputs."
+    )
+
+    parser.add_argument("--train-ratio", type=float, default=0.8)
+    parser.add_argument("--valid-ratio", type=float, default=0.1)
+    parser.add_argument("--test-ratio", type=float, default=0.1)
+    parser.add_argument("--seed", type=int, default=42)
+
+    parser.add_argument(
+        "--exclude-rdf-type",
+        action="store_true",
+        help="Exclude rdf:type triples from Eurostat training preprocessing."
+    )
+    parser.add_argument(
+        "--exclude-schema",
+        action="store_true",
+        help="Exclude schema triples like subClassOf/domain/range from Eurostat training preprocessing."
+    )
+
+    return parser
+
+
+def main() -> None:
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    input_path = Path(args.input)
+    output_dir = Path(args.output_dir)
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+
+    if args.dataset == "eurostat":
+        stats = preprocess_eurostat_training(
+            input_path=input_path,
+            output_dir=output_dir,
+            train_ratio=args.train_ratio,
+            valid_ratio=args.valid_ratio,
+            test_ratio=args.test_ratio,
+            seed=args.seed,
+            include_rdf_type=not args.exclude_rdf_type,
+            include_schema=not args.exclude_schema,
+        )
+    elif args.dataset == "drugbank":
+        stats = preprocess_drugbank_training(
+            input_path=input_path,
+            output_dir=output_dir,
+            train_ratio=args.train_ratio,
+            valid_ratio=args.valid_ratio,
+            test_ratio=args.test_ratio,
+            seed=args.seed,
+        )
+    else:
+        raise ValueError(f"Unsupported dataset: {args.dataset}")
+
+    print(json.dumps(stats, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
