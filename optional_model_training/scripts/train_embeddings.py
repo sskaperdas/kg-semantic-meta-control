@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
-
+from tqdm.auto import tqdm
 
 TripleStr = Tuple[str, str, str]
 TripleId = Tuple[int, int, int]
@@ -347,8 +347,14 @@ def train_one_epoch(
     total_loss = 0.0
     total_examples = 0
 
-    for batch in loader:
+    progress = tqdm(
+        loader,
+        desc="train",
+        leave=False,
+        dynamic_ncols=True,
+    )
 
+    for batch in progress:
         if isinstance(batch, (list, tuple)) and len(batch) == 3:
             pos_h = batch[0].to(device=device, dtype=torch.long)
             pos_r = batch[1].to(device=device, dtype=torch.long)
@@ -368,8 +374,8 @@ def train_one_epoch(
             corrupt_both_sides=corrupt_both_sides,
         )
 
-        pos_scores = model.score_hrt(pos_h, pos_r, pos_t)  # [B]
-        neg_scores = model.score_hrt(neg_h, neg_r, neg_t).view(batch_tensor.shape[0], num_negs)  # [B, N]
+        pos_scores = model.score_hrt(pos_h, pos_r, pos_t)
+        neg_scores = model.score_hrt(neg_h, neg_r, neg_t).view(batch_tensor.shape[0], num_negs)
         neg_scores = neg_scores.mean(dim=1)
 
         target = torch.ones_like(pos_scores)
@@ -389,6 +395,10 @@ def train_one_epoch(
         batch_size = batch_tensor.shape[0]
         total_loss += float(loss.item()) * batch_size
         total_examples += batch_size
+
+        progress.set_postfix({
+            "loss": f"{loss.item():.4f}"
+        })
 
     return {
         "loss": total_loss / max(total_examples, 1),
@@ -430,7 +440,15 @@ def evaluate_filtered_tail_prediction(
     model.eval()
     ranks: List[int] = []
 
-    for start in range(0, len(triples), batch_size):
+    starts = range(0, len(triples), batch_size)
+    progress = tqdm(
+        starts,
+        desc="eval-tail",
+        leave=False,
+        dynamic_ncols=True,
+    )
+
+    for start in progress:
         batch = triples[start:start + batch_size]
         heads = torch.tensor([h for h, _, _ in batch], dtype=torch.long, device=device)
         rels = torch.tensor([r for _, r, _ in batch], dtype=torch.long, device=device)
@@ -462,7 +480,15 @@ def evaluate_filtered_head_prediction(
     model.eval()
     ranks: List[int] = []
 
-    for start in range(0, len(triples), batch_size):
+    starts = range(0, len(triples), batch_size)
+    progress = tqdm(
+        starts,
+        desc="eval-tail",
+        leave=False,
+        dynamic_ncols=True,
+    )
+
+    for start in progress:
         batch = triples[start:start + batch_size]
         rels = torch.tensor([r for _, r, _ in batch], dtype=torch.long, device=device)
         tails = torch.tensor([t for _, _, t in batch], dtype=torch.long, device=device)
