@@ -10,15 +10,15 @@ DIRS = [
     "data/raw/eurostatkg/source",
     "data/raw/eurostatkg/ontology",
     "data/raw/eurostatkg/graph",
-    "data/raw/bio2rdf/source",
-    "data/raw/bio2rdf/ontology",
-    "data/raw/bio2rdf/graph",
+    "data/raw/DrugBank/source",
+    "data/raw/DrugBank/ontology",
+    "data/raw/DrugBank/graph",
 
     "data/interim/eurostatkg",
-    "data/interim/bio2rdf",
+    "data/interim/DrugBank",
 
     "data/processed/eurostatkg",
-    "data/processed/bio2rdf",
+    "data/processed/DrugBank",
 
     "data/external",
 
@@ -105,10 +105,10 @@ train_path: data/processed/dataset1/train.tsv
 valid_path: data/processed/dataset1/valid.tsv
 test_path: data/processed/dataset1/test.tsv
 """,
-    "configs/datasets/bio2rdf.yaml": """name: bio2rdf
-raw_path: data/raw/bio2rdf
+    "configs/datasets/DrugBank.yaml": """name: DrugBank
+raw_path: data/raw/DrugBank
 processed_path: data/processed/dataset2
-ontology_path: data/raw/bio2rdf/ontology.owl
+ontology_path: data/raw/DrugBank/ontology.owl
 train_path: data/processed/dataset2/train.tsv
 valid_path: data/processed/dataset2/valid.tsv
 test_path: data/processed/dataset2/test.tsv
