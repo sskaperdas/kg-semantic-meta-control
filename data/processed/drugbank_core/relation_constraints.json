@@ -1,0 +1,58 @@
+{
+  "has_carrier": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Carrier"
+    ]
+  },
+  "has_category": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Category"
+    ]
+  },
+  "has_enzyme": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Enzyme"
+    ]
+  },
+  "has_pathway": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Pathway"
+    ]
+  },
+  "has_target": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Target"
+    ]
+  },
+  "has_transporter": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Transporter"
+    ]
+  },
+  "in_group": {
+    "domain": [
+      "Drug"
+    ],
+    "range": [
+      "Group"
+    ]
+  }
+}

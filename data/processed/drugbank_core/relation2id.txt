@@ -1,0 +1,7 @@
+has_carrier	0
+has_category	1
+has_enzyme	2
+has_pathway	3
+has_target	4
+has_transporter	5
+in_group	6

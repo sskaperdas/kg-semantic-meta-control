@@ -1,0 +1,74 @@
+{
+  "dataset": "drugbank",
+  "processed_dir": "data\\processed\\drugbank_core",
+  "output_dir": "data\\processed\\drugbank_core",
+  "num_entities": 28816,
+  "num_relations": 7,
+  "num_entity_types": 28816,
+  "num_relation_constraints": 7,
+  "num_disjoint_pairs": 28,
+  "unknown_entities": 0,
+  "sample_unknown_entities": [],
+  "relation_constraints": {
+    "has_carrier": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Carrier"
+      ]
+    },
+    "has_category": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Category"
+      ]
+    },
+    "has_enzyme": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Enzyme"
+      ]
+    },
+    "has_pathway": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Pathway"
+      ]
+    },
+    "has_target": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Target"
+      ]
+    },
+    "has_transporter": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Transporter"
+      ]
+    },
+    "in_group": {
+      "domain": [
+        "Drug"
+      ],
+      "range": [
+        "Group"
+      ]
+    }
+  },
+  "notes": [
+    "Entity types are inferred from entity prefixes.",
+    "Relation constraints are deterministic for the DrugBank core extraction schema."
+  ]
+}

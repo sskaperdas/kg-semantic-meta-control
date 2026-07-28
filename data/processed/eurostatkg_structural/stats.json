@@ -1,0 +1,82 @@
+{
+  "dataset": "eurostat",
+  "input_file": "data\\raw\\eurostatkg\\Eurostat_KG.ttl",
+  "output_dir": "data\\processed\\eurostatkg_structural",
+  "config": {
+    "train_ratio": 0.8,
+    "valid_ratio": 0.1,
+    "test_ratio": 0.1,
+    "seed": 42,
+    "include_rdf_type": false,
+    "include_schema": false
+  },
+  "counts": {
+    "rdf_graph_total_triples": 307444,
+    "uri_uri_triples_before_filtering": 134434,
+    "training_triples_after_filtering": 64522,
+    "train": 58105,
+    "valid": 3127,
+    "test": 3290,
+    "entities": 44840,
+    "relations": 13
+  },
+  "removals": {
+    "removed_rdf_type": 67883,
+    "removed_schema_relation": 2029
+  },
+  "top_relations": [
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasReference",
+      19735
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasCode",
+      8645
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasOECDTheme",
+      8271
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURI",
+      6550
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasParagraph",
+      4749
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasTopic",
+      4325
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/relatedTerm",
+      4321
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasCategoryOfGlossaryArticle",
+      3428
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasCategoryOfStatisticExplainedArticle",
+      2458
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasEurostatTheme",
+      1493
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasFrequentTerm",
+      400
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/relatedTheme",
+      109
+    ],
+    [
+      "https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasSubTheme",
+      38
+    ]
+  ],
+  "top_rdf_types": []
+}

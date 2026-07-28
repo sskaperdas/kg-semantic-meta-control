@@ -1,0 +1,13 @@
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasCategoryOfGlossaryArticle
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasCategoryOfStatisticExplainedArticle
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasCode
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasEurostatTheme
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasFrequentTerm
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasOECDTheme
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasParagraph
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasReference
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasSubTheme
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasTopic
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURI
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/relatedTerm
+https://ec.europa.eu/eurostat/NLP4StatRef/ontology/relatedTheme

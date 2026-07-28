@@ -1,0 +1,82 @@
+{
+  "dataset": "drugbank_xml",
+  "input_file": "data\\raw\\DrugBank\\full_database.xml",
+  "output_dir": "data\\processed\\drugbank_core",
+  "config": {
+    "train_ratio": 0.8,
+    "valid_ratio": 0.1,
+    "test_ratio": 0.1,
+    "seed": 42,
+    "include_groups": true,
+    "include_categories": true,
+    "include_pathways": true,
+    "include_interactions": false,
+    "make_interactions_symmetric": false,
+    "min_relation_frequency": 1
+  },
+  "source_summary": {
+    "drugs_total_in_xml": 17430,
+    "drugs_used": 17430,
+    "skipped_drugs_no_id": 0
+  },
+  "counts": {
+    "raw_triples_before_dedup": 159196,
+    "triples_after_dedup_before_filtering": 159162,
+    "triples_after_filtering": 159162,
+    "train": 129095,
+    "valid": 14943,
+    "test": 15124,
+    "entities": 28816,
+    "relations": 7
+  },
+  "split_adjustments": {
+    "initial_total": 159162,
+    "moved_from_valid_to_train": 973,
+    "moved_from_test_to_train": 793
+  },
+  "relation_counts_before_filtering": {
+    "has_carrier": 966,
+    "has_category": 101500,
+    "has_enzyme": 5931,
+    "has_pathway": 3758,
+    "has_target": 23136,
+    "has_transporter": 3517,
+    "in_group": 20354
+  },
+  "relation_counts_after_filtering": {
+    "has_carrier": 966,
+    "has_category": 101500,
+    "has_enzyme": 5931,
+    "has_pathway": 3758,
+    "has_target": 23136,
+    "has_transporter": 3517,
+    "in_group": 20354
+  },
+  "extraction_counts": {
+    "has_carrier": 966,
+    "has_category": 101512,
+    "has_enzyme": 5931,
+    "has_pathway": 3780,
+    "has_target": 23136,
+    "has_transporter": 3517,
+    "in_group": 20354
+  },
+  "entity_prefix_counts": {
+    "carrier": 83,
+    "category": 4570,
+    "drug": 17430,
+    "enzyme": 474,
+    "group": 7,
+    "pathway": 872,
+    "target": 5101,
+    "transporter": 279
+  },
+  "recommendation_hints": {
+    "transductive_ready": true,
+    "core_biomedical_graph": true,
+    "has_interactions_enabled": false,
+    "category_enrichment_enabled": true,
+    "group_enrichment_enabled": true,
+    "pathway_enrichment_enabled": true
+  }
+}
