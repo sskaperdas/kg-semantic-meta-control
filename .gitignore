@@ -10,3 +10,12 @@ runs/
 outputs/
 optional_model_training/checkpoints/
 optional_model_training/runs/
+02_TRAINED_MODELS/
+03_TOPK_RESULTS/
+04_SUMMARY_RESULTS/
+05_HELPER_SCRIPTS/
+*.zip
+*.tar
+*.gz
+*.pkl
+*.pt
