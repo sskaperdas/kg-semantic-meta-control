@@ -9,8 +9,8 @@ def sanity_checker():
     resources=SemanticResources(dataset_dir)
     checker=SemanticChecker(resources)
     test=dataset_dir/"test.tsv"
-    output_dir = Path("runs/semantic_checks")
-    output_file = output_dir / "drugbank_first100.json"
+    output_dir=Path("runs/semantic_checks")
+    output_file=output_dir/"drugbank_first100.json"
     output_dir.mkdir(parents=True, exist_ok=True)
     checked=0
     valid=0
