@@ -1,8 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 import json
-from src.kgsmc.semantic_control.resources import SemanticResources
-from src.kgsmc.semantic_control.checker import SemanticChecker
+from kgsmc.semantic_control.resources import SemanticResources
+from kgsmc.semantic_control.checker import SemanticChecker
 
 def sanity_checker():
     dataset_dir=Path("data/processed/drugbank_core")

@@ -35,3 +35,10 @@ print(valid_result)
 print(invalid_result)
 print(unknown_result)
 print(unknown_result1)
+
+assert valid_result.status == "VALID"
+assert invalid_result.status == "INVALID"
+assert unknown_result.status == "UNKNOWN"
+assert unknown_result1.status == "UNKNOWN"
+
+print("All semantic checker tests passed.")
