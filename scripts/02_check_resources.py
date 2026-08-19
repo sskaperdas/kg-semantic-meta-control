@@ -31,6 +31,7 @@ unknown_result1 = checker.check_triple(
     tail="target:BE0000048",
 )
 
+print("DrugBank test:")
 print(valid_result)
 print(invalid_result)
 print(unknown_result)
@@ -40,5 +41,47 @@ assert valid_result.status == "VALID"
 assert invalid_result.status == "INVALID"
 assert unknown_result.status == "UNKNOWN"
 assert unknown_result1.status == "UNKNOWN"
+
+resources = SemanticResources("data/processed/eurostatkg_structural")
+print(resources.direct_types("https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/referenceData934"))
+print(resources.constraint("https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURI"))
+
+checker = SemanticChecker(resources)
+
+valid_result = checker.check_triple(
+    head="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/referenceData934",
+    relation="https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURI",
+    tail="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/SEArticle613",
+)
+
+invalid_result = checker.check_triple(
+    head="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/referenceData934",
+    relation="https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURI",
+    tail="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/agricultur",
+)
+
+unknown_result = checker.check_triple(
+    head="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/referenceData934",
+    relation="https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURIs",
+    tail="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/SEArticle613",
+)
+
+unknown_result1 = checker.check_triple(
+    head="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/SEArticle623",
+    relation="https://ec.europa.eu/eurostat/NLP4StatRef/ontology/hasURI",
+    tail="https://ec.europa.eu/eurostat/NLP4StatRef/knowledge/SEArticle613",
+)
+
+print("Eurostat test:")
+print(valid_result)
+print(invalid_result)
+print(unknown_result)
+print(unknown_result1)
+
+assert valid_result.status == "VALID"
+assert invalid_result.status == "INVALID"
+assert unknown_result.status == "UNKNOWN"
+assert unknown_result1.status == "UNKNOWN"
+
 
 print("All semantic checker tests passed.")
