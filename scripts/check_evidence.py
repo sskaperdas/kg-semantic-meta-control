@@ -18,11 +18,33 @@ def check_evidence(path:Path,records: int=5, candidates:int=5):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file",type=Path,default=Path("runs/evidence/drugbank_rotate_valid_tail_top50_evidence.jsonl.gz"),)
-    parser.add_argument("--records",type=int,default=5,)
-    parser.add_argument("--candidates",type=int,default=5,)
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=["drugbank", "eurostat"],
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="ROTATE",
+    )
+    parser.add_argument(
+        "--records",
+        type=int,
+        default=5,
+    )
+    parser.add_argument(
+        "--candidates",
+        type=int,
+        default=5,)
     args = parser.parse_args()
-    check_evidence(args.file,args.records,args.candidates)
+    for i in args.datasets:
+        path=Path(
+            f"runs/evidence/{i}_{args.model}_valid_tail_top50_evidence.jsonl.gz"
+        )
+        check_evidence(path, args.records, args.candidates)
+
+
     return 0
 
 if __name__ == "__main__":

@@ -24,66 +24,28 @@ from kgsmc.semantic_control.resources import (
 )
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
+def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> None:
+    if dataset=="drugbank":
+        folder="drugbank_core"
+        topk_folder="DRUGBANK"
+    elif dataset=="eurostat":
+        folder="eurostatkg_structural"
+        topk_folder="EUROSTATKG"
+    else:
+        raise ValueError("Unknown dataset")
 
-    parser.add_argument(
-        "--dataset-dir",
-        type=Path,
-        default=Path(
-            "data/processed/drugbank_core"
-        ),
-    )
+    dataset_dir= Path(f"data/processed/{folder}")
+    train_file= Path(f"data/processed/{folder}/train.tsv")
+    input_file= Path(f"03_TOPK_RESULTS/{topk_folder}/{model}/valid_tail_top50.jsonl.gz")
+    output_file= Path(f"runs/evidence/{dataset}_{model}_valid_tail_top50_evidence.jsonl.gz")
+    summary_file= Path(f"runs/evidence/{dataset}_{model}_valid_tail_evidence_summary.json")
 
-    parser.add_argument(
-        "--train-file",
-        type=Path,
-        default=Path(
-            "data/processed/drugbank_core/train.tsv"
-        ),
-    )
-
-    parser.add_argument(
-        "--input-file",
-        type=Path,
-        default=Path(
-            "03_TOPK_RESULTS/"
-            "DRUGBANK/"
-            "ROTATE/"
-            "valid_tail_top50.jsonl.gz"
-        ),
-    )
-
-    parser.add_argument(
-        "--output-file",
-        type=Path,
-        default=Path(
-            "runs/evidence/"
-            "drugbank_rotate_"
-            "valid_tail_top50_evidence.jsonl.gz"
-        ),
-    )
-
-    parser.add_argument(
-        "--summary-file",
-        type=Path,
-        default=Path(
-            "runs/evidence/"
-            "drugbank_rotate_"
-            "valid_tail_evidence_summary.json"
-        ),
-    )
-
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-    )
-
-    args = parser.parse_args()
+    if not input_file.exists():
+        print("Input file not found")
+        return
 
     resources = SemanticResources(
-        args.dataset_dir
+        dataset_dir
     )
 
     checker = SemanticChecker(
@@ -93,7 +55,7 @@ def main() -> int:
     print("Building training graph index...")
 
     graph_index = GraphEvidenceIndex(
-        args.train_file
+        train_file
     )
 
     extractor = EvidenceExtractor(
@@ -102,12 +64,12 @@ def main() -> int:
         graph_index=graph_index,
     )
 
-    args.output_file.parent.mkdir(
+    output_file.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    args.summary_file.parent.mkdir(
+    summary_file.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
@@ -121,17 +83,17 @@ def main() -> int:
     graph_lengths = Counter()
 
     with gzip.open(
-        args.output_file,
-        "wt",
-        encoding="utf-8",
+            output_file,
+            "wt",
+            encoding="utf-8",
     ) as writer:
 
         for record in tqdm(
-            iter_candidate_records(
-                args.input_file
-            ),
-            desc="Extracting evidence",
-            unit="query",
+                iter_candidate_records(
+                    input_file
+                ),
+                desc="Extracting evidence",
+                unit="query",
         ):
             record = add_evidence_to_record(
                 record,
@@ -181,12 +143,13 @@ def main() -> int:
             )
 
             if (
-                args.limit is not None
-                and query_count >= args.limit
+                    limit is not None
+                    and query_count >= limit
             ):
                 break
 
     summary = {
+        "dataset": dataset,
         "queries": query_count,
         "candidates": candidate_count,
         "semantic_statuses": dict(
@@ -203,7 +166,7 @@ def main() -> int:
         ),
     }
 
-    args.summary_file.write_text(
+    summary_file.write_text(
         json.dumps(
             summary,
             indent=2,
@@ -221,12 +184,36 @@ def main() -> int:
     )
 
     print(
-        f"Evidence file: {args.output_file}"
+        f"Evidence file: {output_file}"
     )
 
     print(
-        f"Summary: {args.summary_file}"
+        f"Summary: {summary_file}"
     )
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=["drugbank","eurostat"],
+    )
+
+    parser.add_argument(
+        "--model",
+        type=str,
+        default= "ROTATE",
+    )
+
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+    )
+    args=parser.parse_args()
+    for i in args.datasets:
+        dataset_processing(dataset=i, model=args.model, limit=args.limit)
 
     return 0
 
