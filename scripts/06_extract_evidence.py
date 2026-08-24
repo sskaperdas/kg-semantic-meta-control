@@ -37,8 +37,8 @@ def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> 
     dataset_dir= Path(f"data/processed/{folder}")
     train_file= Path(f"data/processed/{folder}/train.tsv")
     input_file= Path(f"03_TOPK_RESULTS/{topk_folder}/{model}/valid_tail_top50.jsonl.gz")
-    output_file= Path(f"runs/evidence/{dataset}_{model}_valid_tail_top50_evidence.jsonl.gz")
-    summary_file= Path(f"runs/evidence/{dataset}_{model}_valid_tail_evidence_summary.json")
+    output_file= Path(f"runs/evidence/{dataset}_{model.lower()}_valid_tail_top50_evidence.jsonl.gz")
+    summary_file= Path(f"runs/evidence/{dataset}_{model.lower()}_valid_tail_evidence_summary.json")
 
     if not input_file.exists():
         print("Input file not found")
