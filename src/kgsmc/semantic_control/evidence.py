@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict,Counter
 from pathlib import Path
 
 from kgsmc.semantic_control.checker import SemanticChecker
@@ -17,6 +17,8 @@ class GraphEvidenceIndex:
         self.adjacency: dict[str, dict[str, set[str]]] = defaultdict(
             lambda: defaultdict(set)
         )
+        self.head_role_count: Counter[tuple[str,str]] = Counter()
+        self.tail_role_count: Counter[tuple[str,str]] = Counter()
 
         self._load()
 
@@ -58,6 +60,8 @@ class GraphEvidenceIndex:
                 self.adjacency[tail][head].add(
                     "^" + relation
                 )
+                self.head_role_count[(relation,head)] += 1
+                self.tail_role_count[(relation,tail)] += 1
 
     def _relation_for_edge(
         self,
@@ -76,6 +80,24 @@ class GraphEvidenceIndex:
             return None
 
         return sorted(relations)[0]
+
+    def relation_role_evidence(
+            self,
+            candidate:str,
+            relation:str,
+            query_type:str,
+    )->dict:
+        if query_type=="head_prediction":
+            count=self.head_role_count.get((relation,candidate),0)
+        elif query_type=="tail_prediction":
+            count=self.tail_role_count.get((relation,candidate),0)
+        else:
+            raise ValueError(f"Unknown type {query_type}")
+        return {
+            "relation_role_supported":count>0,
+            "relation_role_count": count,
+        }
+
 
     def find_short_witness(
         self,
@@ -131,9 +153,13 @@ class GraphEvidenceIndex:
             & set(tail_neighbors)
         )
 
-        if common_neighbors:
+        valid=sorted(
+            [node for node in common_neighbors if node!=head and node!=tail]
+        )
+
+        if valid:
             # Deterministic choice
-            middle = sorted(common_neighbors)[0]
+            middle = valid[0]
 
             first_relation = self._relation_for_edge(
                 head,
@@ -166,6 +192,31 @@ class GraphEvidenceIndex:
             "shortest_witness_length": None,
             "witness_path": None,
         }
+
+    def three_hop_witness(
+            self,
+            start:str,
+    )->tuple[Counter[str],dict[str,list[str]]]:
+        neighbors = set(self.adjacency.get(start,{}).keys())
+        u=neighbors-{start}
+        count: Counter[str]=Counter()
+        paths:dict[str,list[str]]={}
+        for i in u:
+            u_neighbors=set(self.adjacency.get(i,{}).keys())
+            v=u_neighbors-{start,i}
+            for j in v:
+                v_neighbors = set(self.adjacency.get(j, {}).keys())
+                t = v_neighbors - {start, i,j}
+                for k in t:
+                    count[k]+=1
+                    if k not in paths:
+                        r1=self._relation_for_edge(start,i)
+                        r2=self._relation_for_edge(i,j)
+                        r3=self._relation_for_edge(j,k)
+                        if r1 and r2 and r3:
+                            paths[k]=[start,r1,i,r2,j,r3,k]
+
+        return count,paths
 
 
 class EvidenceExtractor:
@@ -262,6 +313,9 @@ class EvidenceExtractor:
         head: str,
         relation: str,
         tail: str,
+        query_type:str,
+        three_hop_count:Counter[str],
+        three_hop_examples:dict[str,list[str]],
     ) -> dict:
 
         semantic_result = (
@@ -294,13 +348,45 @@ class EvidenceExtractor:
             expected_range,
         )
 
-        graph_evidence = (
+        short_graph_evidence = (
             self.graph_index.find_short_witness(
                 head,
                 relation,
                 tail,
             )
         )
+        if query_type=="tail_prediction":
+            candidate=tail
+        else:
+            candidate=head
+
+        count=0
+        if three_hop_count is not None:
+            count=three_hop_count.get(candidate,0)
+
+        example=None
+        if three_hop_examples is not None:
+            example=three_hop_examples.get(candidate)
+
+        three_hop_evidence={
+            "has_three_hop_witness":count>0,
+            "three_hop_count":count,
+            "example_three_hop_path":example
+        }
+
+        role_evidence=(
+            self.graph_index.relation_role_evidence(
+                candidate=candidate,
+                relation=relation,
+                query_type=query_type,
+            )
+        )
+
+        graph_evidence={
+            **short_graph_evidence,
+            **three_hop_evidence,
+            **role_evidence,
+        }
 
         return {
             "semantic_status": (
@@ -321,6 +407,17 @@ def add_evidence_to_record(
 
     query = record["query"]
     query_type = record["query_type"]
+
+    if query_type=="tail_prediction":
+        start=query["head"]
+    elif query_type=="head_prediction":
+        start=query["tail"]
+    else:
+        raise ValueError(f"Unsupported query type: {query_type}")
+
+    three_hop_count,three_hop_examples=(
+        extractor.graph_index.three_hop_witness(start)
+    )
 
     for candidate in record["candidates"]:
 
@@ -345,6 +442,9 @@ def add_evidence_to_record(
                 head=head,
                 relation=relation,
                 tail=tail,
+                query_type=query_type,
+                three_hop_count= three_hop_count,
+                three_hop_examples=three_hop_examples,
             )
         )
 

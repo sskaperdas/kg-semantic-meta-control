@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import numpy as np
 from collections import Counter
 from pathlib import Path
 
@@ -23,6 +24,17 @@ from kgsmc.semantic_control.resources import (
     SemanticResources,
 )
 
+def statistics(stat: list[int|float]) -> dict[str,float]:
+    if not stat:
+        return {"mean":0.0,"median":0.0,"p90":0.0,"max":0.0}
+    array=np.array(stat)
+    return {
+        "mean": round(float(np.mean(array)), 4),
+        "median":round(float(np.median(array)),4),
+        "p90":round(float(np.percentile(array,90)),4),
+        "max":round(float(np.max(array)),4),
+
+    }
 
 def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> None:
     if dataset=="drugbank":
@@ -37,8 +49,8 @@ def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> 
     dataset_dir= Path(f"data/processed/{folder}")
     train_file= Path(f"data/processed/{folder}/train.tsv")
     input_file= Path(f"03_TOPK_RESULTS/{topk_folder}/{model}/valid_tail_top50.jsonl.gz")
-    output_file= Path(f"runs/evidence/{dataset}_{model.lower()}_valid_tail_top50_evidence.jsonl.gz")
-    summary_file= Path(f"runs/evidence/{dataset}_{model.lower()}_valid_tail_evidence_summary.json")
+    output_file= Path(f"runs/evidence/{dataset}_{model.lower()}_valid_tail_top50_evidence_v02.jsonl.gz")
+    summary_file= Path(f"runs/evidence/{dataset}_{model.lower()}_valid_tail_evidence_summary_v02.json")
 
     if not input_file.exists():
         print("Input file not found")
@@ -81,6 +93,9 @@ def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> 
     domain_statuses = Counter()
     range_statuses = Counter()
     graph_lengths = Counter()
+    relation_role_statuses=Counter()
+    three_hop_counts:list[int]=[]
+    relation_role_counts:list[int]=[]
 
     with gzip.open(
             output_file,
@@ -127,11 +142,25 @@ def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> 
                     evidence["graph"]
                     ["shortest_witness_length"]
                 )
-
-                if length is None:
-                    graph_lengths["NONE"] += 1
+                if length==1:
+                    graph_lengths["1"]+=1
+                elif length==2:
+                    graph_lengths["2"]+=1
+                elif evidence["graph"].get("has_three_hop_witness",False):
+                    graph_lengths["3"]+=1
                 else:
-                    graph_lengths[str(length)] += 1
+                    graph_lengths["NONE"] += 1
+
+
+                role_supported = evidence["graph"].get("relation_role_supported",False)
+                relation_role_statuses[str(role_supported)]+=1
+
+                three_hop_counts.append(
+                    evidence["graph"].get("three_hop_count",0)
+                )
+                relation_role_counts.append(
+                    evidence["graph"].get("relation_role_count",0)
+                )
 
             writer.write(
                 json.dumps(
@@ -161,9 +190,22 @@ def dataset_processing(dataset:str, model:str="ROTATE", limit:int| None=None)-> 
         "range_evidence": dict(
             range_statuses
         ),
-        "graph_witness_length": dict(
-            graph_lengths
+        "graph":{
+            "1-hop count": graph_lengths.get("1",0),
+            "2-hop count": graph_lengths.get("2",0),
+            "3-hop count": graph_lengths.get("3",0),
+            "no-witness": graph_lengths.get("NONE",0),
+        },
+        "three_hop_witness_distribution": statistics(
+            three_hop_counts
         ),
+        "relation_role": {
+            "supported": relation_role_statuses.get("True",0),
+            "unsupported": relation_role_statuses.get("False",0),
+            "relation_role_count_distribution": statistics(
+                relation_role_counts
+            ),
+        },
     }
 
     summary_file.write_text(

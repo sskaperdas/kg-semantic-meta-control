@@ -40,7 +40,7 @@ def main():
     args = parser.parse_args()
     for i in args.datasets:
         path=Path(
-            f"runs/evidence/{i}_{args.model}_valid_tail_top50_evidence.jsonl.gz"
+            f"runs/evidence/{i}_{args.model.lower()}_valid_tail_top50_evidence_v02.jsonl.gz"
         )
         check_evidence(path, args.records, args.candidates)
 
