@@ -116,7 +116,7 @@ def main()->int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-file",type=Path,default=Path("runs/annotated_candidates/drugbank_rotate_test_tail_top50.jsonl.gz"))
     parser.add_argument("--baseline",type=Path,default=Path("runs/evaluation/drugbank_rotate_test_tail_baseline.json"))
-    parser.add_argument("--controlled",type=Path,default=Path("runs/evaluation/drugbank_rotate_test_tail_controlled.json"))
+    parser.add_argument("--controlled",type=Path,default=Path("runs/evaluation/drugbank_rotate_test_tail_simple.json"))
     args = parser.parse_args()
     evaluator=Evaluator()
     for i in iter_candidate_records(args.input_file):
