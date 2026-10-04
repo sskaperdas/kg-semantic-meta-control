@@ -8,7 +8,7 @@ def sanity_checker():
     dataset_dir=Path("data/processed/drugbank_core")
     resources=SemanticResources(dataset_dir)
     checker=SemanticChecker(resources)
-    test=dataset_dir/"test.tsv"
+    file=dataset_dir/"valid.tsv"
     output_dir=Path("runs/semantic_checks")
     output_file=output_dir/"drugbank_first100.json"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -17,7 +17,7 @@ def sanity_checker():
     invalid=0
     unknown=0
     results = []
-    with open(test,"r",encoding="utf-8") as f:
+    with open(file,"r",encoding="utf-8") as f:
         for i in f:
             line=i.strip()
             if not line:
@@ -62,7 +62,7 @@ def sanity_checker():
     dataset_dir = Path("data/processed/eurostatkg_structural")
     resources = SemanticResources(dataset_dir)
     checker = SemanticChecker(resources)
-    test = dataset_dir / "test.tsv"
+    file = dataset_dir / "valid.tsv"
     output_dir = Path("runs/semantic_checks")
     output_file = output_dir / "eurostat_first100.json"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -71,7 +71,7 @@ def sanity_checker():
     invalid = 0
     unknown = 0
     results = []
-    with open(test, "r", encoding="utf-8") as f:
+    with open(file, "r", encoding="utf-8") as f:
         for i in f:
             line = i.strip()
             if not line:
